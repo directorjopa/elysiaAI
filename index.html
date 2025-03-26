@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elysia | Личностный рост</title>
+    <title>Elysia | Психологическая поддержка</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -508,157 +508,164 @@
         tg.expand();
         tg.enableClosingConfirmation();
         
-        // Set user data from Telegram
-        document.addEventListener('DOMContentLoaded', function() {
+               // Состояние приложения
+        const state = {
+            chatHistory: [],
+            isSessionActive: false,
+            userName: 'Пользователь'
+        };
+
+        // Элементы DOM
+        const DOM = {
+            chatMessages: document.getElementById('chat-messages'),
+            userInput: document.getElementById('user-input'),
+            sendBtn: document.getElementById('send-btn'),
+            startSessionBtn: document.getElementById('start-session-btn'),
+            menuItems: document.querySelectorAll('.menu-item'),
+            sections: document.querySelectorAll('.section'),
+            userAvatar: document.getElementById('user-avatar'),
+            userName: document.getElementById('user-name')
+        };
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        function initApp() {
+            setupTelegramUser();
+            setupEventListeners();
+        }
+
+        function setupTelegramUser() {
             const user = tg.initDataUnsafe?.user;
             if (user) {
                 const firstName = user.first_name || '';
                 const lastName = user.last_name || '';
-                document.getElementById('user-name').textContent = `${firstName} ${lastName}`.trim() || 'Пользователь';
-                document.getElementById('user-avatar').textContent = firstName ? firstName[0].toUpperCase() : 'U';
-                
-                // Generate random join date between 1-12 months ago
-                const joinDate = new Date();
-                joinDate.setMonth(joinDate.getMonth() - Math.floor(Math.random() * 12) - 1);
-                document.getElementById('user-email').textContent = `Участник с ${joinDate.getFullYear()}`;
+                state.userName = `${firstName} ${lastName}`.trim() || 'Пользователь';
+                DOM.userName.textContent = state.userName;
+                DOM.userAvatar.textContent = firstName ? firstName[0].toUpperCase() : 'U';
             }
-            
-            // Initialize AI psychologist with welcome message
-            setTimeout(() => {
-                addBotMessage("Привет! Я Elysia, ваш AI-психолог. Я здесь, чтобы помочь вам с вопросами личностного роста, эмоционального благополучия и психологической поддержки. Вы можете рассказать мне о том, что вас беспокоит, или задать любой вопрос, связанный с психологией. Как я могу вам помочь сегодня?");
-            }, 500);
-        });
-        
-        // Menu navigation
-        const menuItems = document.querySelectorAll('.menu-item');
-        const sections = document.querySelectorAll('.section');
-        
-        menuItems.forEach(item => {
-            item.addEventListener('click', function() {
-                const sectionId = this.getAttribute('data-section');
-                
-                // Update active menu item
-                menuItems.forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Show corresponding section
-                sections.forEach(section => {
-                    section.classList.remove('active');
-                    if (section.id === sectionId) {
-                        section.classList.add('active');
-                    }
+        }
+
+        function setupEventListeners() {
+            // Навигация по меню
+            DOM.menuItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const sectionId = item.getAttribute('data-section');
+                    DOM.menuItems.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    DOM.sections.forEach(section => {
+                        section.classList.remove('active');
+                        if (section.id === sectionId) section.classList.add('active');
+                    });
                 });
             });
-        });
-        
-        // Chat functionality
-        const chatMessages = document.getElementById('chat-messages');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const endSessionBtn = document.getElementById('end-session-btn');
-        
-        function addMessage(text, isUser) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            messageDiv.textContent = text;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            return messageDiv;
+
+            // Кнопка начала сессии
+            DOM.startSessionBtn.addEventListener('click', startSession);
+
+            // Отправка сообщения
+            DOM.sendBtn.addEventListener('click', sendMessage);
+            DOM.userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
         }
-        
-        function addBotMessage(text) {
-            return addMessage(text, false);
+
+        function startSession() {
+            state.isSessionActive = true;
+            state.chatHistory = [];
+            DOM.startSessionBtn.style.display = 'none';
+            DOM.userInput.disabled = false;
+            DOM.sendBtn.style.display = 'block';
+            
+            // Системное сообщение для нейросети
+            state.chatHistory.push({
+                role: "system",
+                content: "Ты Elysia - AI психолог. Будь эмпатичным, поддерживающим и профессиональным. Отвечай на русском. Избегай медицинских диагнозов. Поддержи контекст беседы."
+            });
+
+            addBotMessage("Привет! Я Elysia, твой AI-психолог. Расскажи, что тебя беспокоит или задай любой вопрос. Я здесь, чтобы помочь.");
         }
-        
-        function addUserMessage(text) {
-            return addMessage(text, true);
-        }
-        
-        function showTypingIndicator() {
-            const indicator = document.createElement('div');
-            indicator.classList.add('typing-indicator');
-            indicator.textContent = "Пожалуйста, подождите, я генерирую ответ...";
-            indicator.id = 'typing-indicator';
-            chatMessages.appendChild(indicator);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            return indicator;
-        }
-        
-        function removeTypingIndicator() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.remove();
-            }
-        }
-        
-        async function sendToAI(message) {
+
+        async function sendMessage() {
+            const message = DOM.userInput.value.trim();
+            if (!message) return;
+
+            addUserMessage(message);
+            DOM.userInput.value = '';
+            
+            // Добавляем сообщение в историю
+            state.chatHistory.push({
+                role: "user",
+                content: message
+            });
+
             const typingIndicator = showTypingIndicator();
             
             try {
-                // Send message to OpenRouter API (DeepSeek model)
-                const response = await fetch('https://openrouter.ai/api/v1/chat', {
+                // Отправляем на наш Vercel прокси
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`, // Replace with your actual API key
-                        'HTTP-Referer': 'https://elysia-bot.com', // Your site URL
-                        'X-Title': 'Elysia Bot' // Your app name
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        model: "deepseek/deepseek-r1:free",
-                        messages: [
-                            {
-                                role: "system",
-                                content: "Ты Elysia - AI психолог, специализирующийся на личностном росте и психологической поддержке. Будь эмпатичным, поддерживающим и профессиональным. Отвечай на русском языке. Помогай пользователю разобраться в его проблемах, задавай уточняющие вопросы, предлагай техники и упражнения. Избегай медицинских диагнозов."
-                            },
-                            {
-                                role: "user",
-                                content: message
-                            }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 1000
+                        messages: state.chatHistory
                     })
                 });
-                
+
                 const data = await response.json();
-                removeTypingIndicator();
                 
-                if (data.choices && data.choices[0].message) {
-                    addBotMessage(data.choices[0].message.content);
+                if (data.choices?.[0]?.message) {
+                    const botMessage = data.choices[0].message.content;
+                    addBotMessage(botMessage);
+                    
+                    // Сохраняем ответ в историю
+                    state.chatHistory.push({
+                        role: "assistant",
+                        content: botMessage
+                    });
                 } else {
-                    addBotMessage("Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте еще раз.");
+                    throw new Error('Invalid response format');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                removeTypingIndicator();
-                addBotMessage("Произошла ошибка при подключении к сервису. Пожалуйста, попробуйте позже.");
+                console.error('Chat error:', error);
+                addBotMessage("Извините, произошла ошибка. Пожалуйста, попробуйте еще раз.");
+            } finally {
+                removeTypingIndicator(typingIndicator);
             }
         }
-        
-        // Event listeners
-        sendBtn.addEventListener('click', function() {
-            const message = userInput.value.trim();
-            if (message) {
-                addUserMessage(message);
-                userInput.value = '';
-                sendToAI(message);
-            }
-        });
-        
-        userInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendBtn.click();
-            }
-        });
-        
-        endSessionBtn.addEventListener('click', function() {
-            addBotMessage("Спасибо за сеанс! Если у вас появятся еще вопросы или вам понадобится поддержка, я всегда здесь для вас. Хорошего дня!");
-            setTimeout(() => {
-                tg.close();
-            }, 2000);
-        });
+
+        // Вспомогательные функции для работы с UI
+        function addMessage(text, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
+            messageDiv.textContent = text;
+            DOM.chatMessages.appendChild(messageDiv);
+            DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+        function addBotMessage(text) {
+            return addMessage(text, false);
+        }
+
+        function addUserMessage(text) {
+            return addMessage(text, true);
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.classList.add('typing-indicator');
+            indicator.textContent = "Elysia печатает...";
+            indicator.id = 'typing-indicator';
+            DOM.chatMessages.appendChild(indicator);
+            DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+            return indicator;
+        }
+
+        function removeTypingIndicator(indicator) {
+            indicator?.remove();
+        }
     </script>
 </body>
 </html>
