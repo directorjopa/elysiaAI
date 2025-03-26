@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     try {
         const { messages } = req.body;
         
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const response = await fetch('https://openrouter.ai/api/v1', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
                 'X-Title': 'Elysia Bot'
             },
             body: JSON.stringify({
-                model: "deepseek-chat",
+                model: "deepseek/deepseek-r1:free",
                 messages: messages,
                 temperature: 0.7,
                 max_tokens: 1000
